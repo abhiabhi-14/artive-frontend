@@ -71,8 +71,7 @@ axiosInstance.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null)
         localStorage.removeItem('accessToken')
-        // Redirect to login on hard auth failure
-        window.location.href = '/login'
+        // Let the app handle authentication state instead of forcing redirect
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false

@@ -33,6 +33,7 @@ export const logoutUser = createAsyncThunk(
     try {
       await authApi.logout()
       localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Logout failed')
     }
@@ -86,6 +87,9 @@ const authSlice = createSlice({
         state.accessToken = action.payload.accessToken
         state.isAuthenticated = true
         localStorage.setItem('accessToken', action.payload.accessToken)
+        if (action.payload.refreshToken) {
+          localStorage.setItem('refreshToken', action.payload.refreshToken)
+        }
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false
@@ -98,8 +102,15 @@ const authSlice = createSlice({
         state.isLoading = true
         state.error = null
       })
-      .addCase(registerUser.fulfilled, (state) => {
+      .addCase(registerUser.fulfilled, (state, action) => {
         state.isLoading = false
+        state.user = action.payload.user
+        state.accessToken = action.payload.accessToken
+        state.isAuthenticated = true
+        localStorage.setItem('accessToken', action.payload.accessToken)
+        if (action.payload.refreshToken) {
+          localStorage.setItem('refreshToken', action.payload.refreshToken)
+        }
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.isLoading = false
@@ -132,6 +143,7 @@ const authSlice = createSlice({
         state.isAuthenticated = false
         state.isInitialized = true
         localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
       })
   },
 })

@@ -128,7 +128,7 @@ export default function Register() {
               value={form.role}
               onChange={f('role')}
             >
-              <option value="user">Member</option>
+              <option value="user">User</option>
               <option value="admin">Admin</option>
             </Select>
 

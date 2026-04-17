@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { PageLoader, EmptyState, Dialog } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea, Select } from '@/components/ui/input'
-import { UserCog, Pencil, Upload, User } from 'lucide-react'
+import { UserCog, Pencil, Upload, User, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const ROLE_LABELS = {
@@ -19,11 +19,16 @@ const ROLE_BADGE = { coordinator: 'yellow', year3: 'blue', year2: 'blue', year1:
 
 export default function AdminMembers() {
   const queryClient = useQueryClient()
+  const [createOpen, setCreateOpen] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [form, setForm] = useState({})
   const [photoFile, setPhotoFile] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
+  const [createPhotoFile, setCreatePhotoFile] = useState(null)
+  const [createPhotoPreview, setCreatePhotoPreview] = useState(null)
+  const [createForm, setCreateForm] = useState({ name: '', description: '', role: 'default', displayed: false })
   const fileRef = useRef()
+  const createFileRef = useRef()
 
   const { data: members, isLoading } = useQuery({
     queryKey: ['admin-members'],
@@ -33,10 +38,30 @@ export default function AdminMembers() {
 
   const openEdit = (m) => {
     setEditTarget(m)
-    setForm({ name: m.name || '', description: m.description || '', role: m.role || 'default', displayed: m.displayed })
+    setForm({ _id: m._id, name: m.name || '', description: m.description || '', role: m.role || 'default', displayed: m.displayed })
     setPhotoFile(null)
     setPhotoPreview(null)
   }
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const fd = new FormData()
+      Object.entries(createForm).forEach(([key, value]) => fd.append(key, value))
+      if (createPhotoFile) {
+        fd.append('profilePhoto', createPhotoFile)
+      }
+      return memberApi.createMember(fd)
+    },
+    onSuccess: () => {
+      toast.success('Member created')
+      setCreateOpen(false)
+      setCreateForm({ name: '', description: '', role: 'default', displayed: false })
+      setCreatePhotoFile(null)
+      setCreatePhotoPreview(null)
+      queryClient.invalidateQueries({ queryKey: ['admin-members'] })
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Create failed'),
+  })
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -61,9 +86,14 @@ export default function AdminMembers() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="font-display text-2xl font-bold text-[#F0F0F0]">Members</h1>
-        <p className="text-sm text-[#555] mt-0.5">{members?.length ?? 0} club members</p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-[#F0F0F0]">Members</h1>
+          <p className="text-sm text-[#555] mt-0.5">{members?.length ?? 0} club members</p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="w-4 h-4" /> New Member
+        </Button>
       </div>
 
       {isLoading ? (
@@ -108,10 +138,105 @@ export default function AdminMembers() {
           ))}
         </div>
       ) : (
-        <EmptyState icon={UserCog} title="No members yet" description="Members are created when admins register." />
+        <EmptyState
+          icon={UserCog}
+          title="No members yet"
+          description="Members are created when admins register."
+          action={<Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4" /> Add Member</Button>}
+        />
       )}
 
-      {/* Edit Dialog */}
+      {/* Create Dialog */}
+      <Dialog
+        open={createOpen}
+        onClose={() => {
+          setCreateOpen(false)
+          setCreatePhotoFile(null)
+          setCreatePhotoPreview(null)
+          setCreateForm({ name: '', description: '', role: 'default', displayed: false })
+        }}
+        title="Create Member"
+        description="Add a new member profile for the club."
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="label">Profile Photo</label>
+            <div className="flex items-center gap-3">
+              <div className="w-16 h-16 rounded-xl overflow-hidden bg-[#252525] border border-[#2A2A2A] shrink-0">
+                {createPhotoPreview ? (
+                  <img src={createPhotoPreview} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <User className="w-6 h-6 text-[#555]" />
+                  </div>
+                )}
+              </div>
+              <Button variant="surface" size="sm" onClick={() => createFileRef.current?.click()}>
+                <Upload className="w-3.5 h-3.5" /> Upload Photo
+              </Button>
+              <input
+                ref={createFileRef}
+                type="file"
+                accept="image/png,image/jpeg"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files[0]
+                  if (f) {
+                    setCreatePhotoFile(f)
+                    setCreatePhotoPreview(URL.createObjectURL(f))
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          <Input
+            label="Display Name"
+            placeholder="Full name"
+            value={createForm.name}
+            onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+          />
+          <Textarea
+            label="Bio / Description"
+            placeholder="Short bio about this member…"
+            rows={3}
+            value={createForm.description}
+            onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+          />
+          <Select
+            label="Role"
+            value={createForm.role}
+            onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
+          >
+            {Object.entries(ROLE_LABELS).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
+          </Select>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <div
+              onClick={() => setCreateForm({ ...createForm, displayed: !createForm.displayed })}
+              className={`relative w-10 h-5 rounded-full transition-colors duration-200 ${createForm.displayed ? 'bg-yellow-500' : 'bg-[#2A2A2A]'}`}
+            >
+              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${createForm.displayed ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </div>
+            <span className="text-sm text-[#888]">Show on Members page</span>
+          </label>
+
+          <div className="flex gap-3 pt-2">
+            <Button variant="ghost" className="flex-1" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button
+              className="flex-1"
+              loading={createMutation.isPending}
+              disabled={!createForm.name || !createForm.description}
+              onClick={() => createMutation.mutate()}
+            >
+              Create Member
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
       <Dialog
         open={!!editTarget}
         onClose={() => setEditTarget(null)}

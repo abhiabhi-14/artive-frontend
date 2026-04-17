@@ -10,6 +10,11 @@ export const memberApi = {
   updateMember: (data) =>
     axiosInstance.patch('/members/update', data),
 
+  createMember: (formData) =>
+    axiosInstance.post('/members/create', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+
   uploadProfilePhoto: (formData) =>
     axiosInstance.post('/members/upload-profile-photo', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
